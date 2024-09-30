@@ -1,0 +1,740 @@
+metadata:
+  version: "1"
+  dependencies:
+    apps:
+      - id: dynatrace.automations
+        version: ^1.840.1
+  inputs: []
+workflow:
+  title: Workflow Essentials - Data Generator
+  tasks:
+    config:
+      name: config
+      description: Build a custom task running js Code
+      action: dynatrace.automations:run-javascript
+      input:
+        script: >-
+          // optional import of sdk modules
+
+          import { execution } from '@dynatrace-sdk/automation-utils';
+
+
+          export default async function ({ execution_id }) {
+
+
+            // General configuration
+            
+            // Name of the event.provider field that will be used. Events in the future will be stored in a provider
+            // with ".temp" appended to the end.
+            const EVENT_PROVIDER = "workflow.essentials.withdraw-processing";
+            
+            // Steps you wish the process to have, the first field is the "pretty name", the
+            // second is what the field name in the BizEvent will be, and the numbers after it are:
+            // First number: "Drop off" percentage.
+            // Second number: Minimum time (in hours) for the step to take
+            // Third number: Maximum time (in hours) for the step to take
+            // The last 2 numbers are ignored for the first step, so just set them to 0.
+            const PROCESS_STEPS = [
+              ["Withdraw Submitted","01.withdraw.submitted", 0,0,0],
+              ["Balance Verified","02.balance.verified", 0.1,0.2,0.4],
+              ["Notify Bank","03.notify.bank", 0.1,0.1,0.2],
+              ["Bank Acknowledge","04.bank.acknowledge", 1,0.5,2],
+              ["Transfer Funds","05.transfer.funds", 3,0.2,24],
+              ["Funds Received","06.funds.received", 2,0.2,24],
+              ["Notify Regulatory Board","07.notify.regulatory.board",0,0.2,0.5],
+              ["Regulatory Board Acknowledge","08.regulatory.board.acknowledge",0,0.1,1]
+            ];
+            
+            // Locations you wish to be attached to the users, the number after it
+            // is the percentage that will have that location - they must add up to 100.
+            const LOCATIONS_WITH_PERCENTAGE = [
+              ['USA', 25],
+              ['UK', 20],
+              ['Brazil', 12],
+              ['France', 10],
+              ['Mexico', 8],
+              ['Australia', 7],
+              ['Dubai', 6],
+              ['India', 5],
+              ['Italy', 4],
+              ['Singapore', 3],
+            ];
+            
+            // The name of the different "segments" of users you wish to have, this will be
+            // the field name of the field on the BizEvent.
+            const SEGMENT_NAME = "account-type";
+            
+            // Different segments you wish the users to have (example here is payment types), the
+            // number after it is the percentage that will have that segment - they must add up to 100.
+            const SEGMENTS = [
+              ['none', 40],
+              ['silver', 20],
+              ['gold', 16],
+              ['platinum', 18],
+              ['diamond', 6],
+            ];
+            
+            // Hosts from your environment that you can randomly attribute to BizEvents, you need to
+            // use the Dynatrace identifier and make sure the percentages add up to 100.
+            const HOST_ENTITY = [
+              ['HOST-6B29B384CBF5C6E4', 100]
+            ];
+            
+            // Name of the correlation ID that will be added to each BizEvent, this will be the name
+            // of the field that you see in the BizEvent.
+            const CORRELATION_ID = "trxn.withdraw-processing.id";
+            
+            // Different errors that you want to attach to a certain step:
+            // - First field is the name of the error which will be appeneded to the step name.
+            // - Second field is the (zero indexed) step this error will happen on.
+            // - Third field is the percentage of time this error will happen. (which is only used in the follow-uper)
+            // For this first batch of data, anything in the last 2 hours will be a guaranteed error.
+            const ERRORS_WITH_PERCENTAGE = [
+              ['trxn.withdraw-processing.error', 4, 3],
+            ];
+            
+            // Distribute the load by the time of day, by default the "peak" is around midday
+            // - First field is the hour of the day, so 0 being midnight.
+            // - Second field is the percentage distribution.
+            // As usual, all percentages must add up to 100.
+            const TIMES_OF_DAY = [
+              [0,1],
+              [1,1],
+              [2,1],
+              [3,1],
+              [4,2],
+              [5,3],
+              [6,3],
+              [7,4],
+              [8,6],
+              [9,9],
+              [10,9],
+              [11,10],
+              [12,10],
+              [13,9],
+              [14,9],
+              [15,6],
+              [16,4],
+              [17,3],
+              [18,3],
+              [19,2],
+              [20,1],
+              [21,1],
+              [22,1],
+              [23,1]
+            ]
+           
+            const VARIABLES = {
+              "EVENT_PROVIDER": EVENT_PROVIDER,
+              "PROCESS_STEPS": PROCESS_STEPS,
+              "LOCATIONS_WITH_PERCENTAGE": LOCATIONS_WITH_PERCENTAGE,
+              "SEGMENT_NAME": SEGMENT_NAME, 
+              "SEGMENTS": SEGMENTS,
+              "HOST_ENTITY": HOST_ENTITY,
+              "CORRELATION_ID": CORRELATION_ID,
+              "ERRORS_WITH_PERCENTAGE": ERRORS_WITH_PERCENTAGE,
+              "TIMES_OF_DAY": TIMES_OF_DAY
+            }
+            
+            return VARIABLES;
+          }
+      position:
+        x: 0
+        y: 1
+      predecessors: []
+    generate_new_data:
+      name: generate_new_data
+      description: Build a custom task running js Code
+      action: dynatrace.automations:run-javascript
+      active: true
+      input:
+        script: >
+          // Numbers for reference
+
+          const MS_IN_S = 1000;
+
+          const MS_IN_MINUTE = 60 * MS_IN_S;
+
+          const MS_IN_HOUR = 60 * MS_IN_MINUTE;
+
+          const MS_IN_DAY = 24 * MS_IN_HOUR;
+
+
+          export default async function ({ execution_id }) {
+
+            // Variable declaration
+            const configGet = await fetch(`/platform/automation/v1/executions/${execution_id}/tasks/config/result`);
+            const configBody = await configGet.json();
+              
+            const EVENT_PROVIDER = configBody['EVENT_PROVIDER'];
+            const PROCESS_STEPS = configBody['PROCESS_STEPS'];
+            const LOCATIONS_WITH_PERCENTAGE = configBody['LOCATIONS_WITH_PERCENTAGE'];
+            const SEGMENT_NAME = configBody['SEGMENT_NAME']; 
+            const SEGMENTS = configBody['SEGMENTS'];
+            const HOST_ENTITY = configBody['HOST_ENTITY'];
+            const CORRELATION_ID = configBody['CORRELATION_ID'];
+            const ERRORS_WITH_PERCENTAGE = configBody['ERRORS_WITH_PERCENTAGE'];
+            const TIMES_OF_DAY = configBody['TIMES_OF_DAY']; 
+
+            // Function for getting random values with probabilities (which is why we have all the numbers
+            // stacked up in the arrays above)
+            const getRandomWithProbability = (array) => {
+              const filled = array.flatMap(([value, prob]) => Array.from({ length: prob }).fill(value));
+              const random = Math.floor(Math.random() * filled.length);
+              return filled[random];
+            }
+            
+            // Function to check if we need to throw an error for a given event
+            const checkIfError = (step) => {
+              var isError = false;
+              var errorName = "";
+              ERRORS_WITH_PERCENTAGE.forEach((item) => {
+                if(step == item[1] && getRandomInt([1,100]) < item[2]) {
+                  isError = true;
+                  errorName = item[0];
+                }
+              })
+            
+              const errorResult = {
+                "isError": isError,
+                "errorName": errorName
+              }
+              
+              return errorResult;
+            }
+            
+            //Function for getting a random value from an array
+            const getRandomFromArray = (array) => array[Math.floor(Math.random() * array.length)];
+            
+            // Function for getting a random number between 2 integers
+            // The maximum is exclusive and the minimum is inclusive
+            const getRandomInt = ([min, max]) => Math.floor(Math.random() * (max - min) + min);
+
+            
+            
+            const now = new Date();
+            const nowMinusTwentyFourH = now - (MS_IN_DAY);
+            const nowMinusFiveM = now - (MS_IN_MINUTE * 5);
+            const nowMinusTwoH = now - (MS_IN_HOUR * 2);
+            
+            let flows = [];
+
+            // Run through and create up to 2 events every 5 minutes - this should produce a similar
+            // load profile to carry on what the "data generator" did
+            for(let i=0; i<5; i++) {
+
+              // Based on the time of day, choose if an event is going to get generated
+              var rollRandom = getRandomInt([0, 100]);
+              var makeNewEvent = TIMES_OF_DAY[now.getHours()][1] * 10;
+
+             if(rollRandom < makeNewEvent) {
+
+              console.log("Making event start");
+               
+              // Set the high level attributes which will apply across all events
+              // Start time is set here for the first event, then all others are relative to this
+              var LOCATION = getRandomWithProbability(LOCATIONS_WITH_PERCENTAGE);
+              var UID = crypto.randomUUID();
+              var SEGMENT = getRandomWithProbability(SEGMENTS);
+              var HOST = getRandomWithProbability(HOST_ENTITY);
+              var START_TIME = new Date(nowMinusTwentyFourH + (getRandomInt([1, now.getTime() - nowMinusTwentyFourH])));
+              START_TIME.setHours(getRandomWithProbability(TIMES_OF_DAY));
+
+              // If the start time has a chance of being slightly later this hour, then
+              // wind it back 24 hours
+              if(START_TIME.getHours() > now.getHours()) {
+                START_TIME = new Date(START_TIME - MS_IN_DAY);
+              }
+
+               // Keep going until the start time falls in the desired range
+              while (START_TIME > now || START_TIME < nowMinusFiveM) {
+                 START_TIME = new Date(nowMinusTwentyFourH + (getRandomInt([1, now - nowMinusTwentyFourH]))); 
+
+                 if(START_TIME.getHours() > now.getHours()) {
+                   START_TIME = START_TIME - MS_IN_DAY;
+                 }      
+              }
+              
+              var stop = false;
+
+              // Loop through every step that you've defined, checks will be made for:
+              // 1. Do we need to "drop off" based on the probability you defined
+              // 2. Do we need to "throw an error" based on the errors defined above and stop
+              PROCESS_STEPS.forEach((item, index) => {
+
+                // If it's the first step, run this loop
+                if(index == 0) {
+                  var event = {
+                    "event.provider": EVENT_PROVIDER,
+                    "event.type": item[1],
+                    [CORRELATION_ID]: UID,
+                    [SEGMENT_NAME]: SEGMENT,
+                    "dt.entity.host": HOST,
+                    "timestamp": START_TIME,
+                    "booking.value": getRandomInt([505,2430])
+                  }
+                  stop = false;
+                }
+
+                // If it's the second step, run this loop
+                // Where an event is in the future it will be put under the same event.provider with
+                // ".temp" added to the end and be picked up by the "follow-uper" when the right time comes        
+                else if (index > 0 && getRandomInt([0, 100]) > PROCESS_STEPS[index][2] && stop == false) {
+                  
+                  START_TIME = new Date(START_TIME.getTime() + getRandomInt([PROCESS_STEPS[index][3] * MS_IN_HOUR, PROCESS_STEPS[index][4] * MS_IN_HOUR]));
+
+                  if(START_TIME < now) {
+                    var eventType = item[1];
+                    stop = false;
+
+                    var errorState = checkIfError(index);
+                    
+                    if(START_TIME > nowMinusTwoH && errorState["isError"] == true) {
+                      eventType = item[1] + "." + errorState["errorName"];
+                      stop = true;
+                      
+                    }
+                    else {
+                      stop = false;
+                    }
+                    var event = {
+                      "event.provider": EVENT_PROVIDER,
+                      "event.type": eventType,
+                      [CORRELATION_ID]: UID,
+                      [SEGMENT_NAME]: SEGMENT,
+                      "dt.entity.host": HOST,
+                      "timestamp": START_TIME
+                    }
+                    
+                 }   
+                 else {
+                   var errorState = checkIfError(index);
+                   if(errorState["isError"] == true) {
+                     eventType = item[1] + '.' + errorState["errorName"];
+                     stop = true;
+                   }
+                   else {
+                     eventType = item[1];
+                     stop = false;
+                   }
+                   
+                   var futureEvent = {
+                    "event.provider": EVENT_PROVIDER + ".temp",
+                    "event.type": eventType,
+                    [CORRELATION_ID]: UID,
+                    [SEGMENT_NAME]: SEGMENT,
+                    "dt.entity.host": HOST,
+                    "future.timestamp": START_TIME,
+                    "timestamp": now.toISOString()
+                   }
+                   flows.push(futureEvent);
+                   }
+                 
+                }
+
+                else {
+                  stop = true;        
+                }
+                
+                if(event != undefined){
+                  flows.push(event);
+                }
+              });
+
+             }
+              
+            }
+
+            console.log(flows);
+            
+            //Send all the events into the BizEvents API
+            const result = await fetch('/platform/classic/environment-api/v2/bizevents/ingest', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(flows),
+            });
+
+            console.log(result);
+            
+            return flows;
+          }
+      position:
+        x: 0
+        y: 2
+      predecessors:
+        - config
+      conditions:
+        states:
+          config: OK
+    check_if_data_exists:
+      name: check_if_data_exists
+      description: Executes DQL query
+      action: dynatrace.automations:execute-dql-query
+      input:
+        query: |-
+          fetch bizevents
+          | filter event.provider == "{{result('config').EVENT_PROVIDER}}"
+      position:
+        x: -1
+        y: 2
+      predecessors:
+        - config
+      conditions:
+        states:
+          config: OK
+    generate_historical_data:
+      name: generate_historical_data
+      description: Build a custom task running js Code
+      action: dynatrace.automations:run-javascript
+      input:
+        script: >
+          import { execution } from '@dynatrace-sdk/automation-utils';
+
+
+          export default async function ({ execution_id }) {
+
+            // Variable declaration
+            const configGet = await fetch(`/platform/automation/v1/executions/${execution_id}/tasks/config/result`);
+            const configBody = await configGet.json();
+              
+            const EVENT_PROVIDER = configBody['EVENT_PROVIDER'];
+            const PROCESS_STEPS = configBody['PROCESS_STEPS'];
+            const LOCATIONS_WITH_PERCENTAGE = configBody['LOCATIONS_WITH_PERCENTAGE'];
+            const SEGMENT_NAME = configBody['SEGMENT_NAME']; 
+            const SEGMENTS = configBody['SEGMENTS'];
+            const HOST_ENTITY = configBody['HOST_ENTITY'];
+            const CORRELATION_ID = configBody['CORRELATION_ID'];
+            const ERRORS_WITH_PERCENTAGE = configBody['ERRORS_WITH_PERCENTAGE'];
+            const TIMES_OF_DAY = configBody['TIMES_OF_DAY']; 
+
+            // Check if data exists already - if it does, don't run this again
+            const historyGet = await fetch(`/platform/automation/v1/executions/${execution_id}/tasks/check_if_data_exists/result`);
+            const historyBody = await historyGet.json();  
+            var historyCheck = true;
+            
+            if(historyBody.records.length == 0 || historyBody.records.length == undefined) {
+              historyCheck = false;
+            }
+            else {
+              historyCheck = true;
+            }
+
+            // Override if needed, set this to "false" if you need to get more historical data
+            // for any reason
+            // historyCheck = false;
+            
+            // Numbers for reference
+            const MS_IN_S = 1000;
+            const MS_IN_MINUTE = 60 * MS_IN_S;
+            const MS_IN_HOUR = 60 * MS_IN_MINUTE;
+            const MS_IN_DAY = 24 * MS_IN_HOUR;
+            
+            // Function for getting random values with probabilities (which is why we have all the numbers
+            // stacked up in the arrays above)
+            const getRandomWithProbability = (array) => {
+              const filled = array.flatMap(([value, prob]) => Array.from({ length: prob }).fill(value));
+              const random = Math.floor(Math.random() * filled.length);
+              return filled[random];
+            }
+            
+            // Function to check if we need to throw an error for a given event
+            const checkIfError = (step) => {
+              var isError = false;
+              var errorName = "";
+              ERRORS_WITH_PERCENTAGE.forEach((item) => {
+                if(step == item[1]) {
+                  isError = true;
+                  errorName = item[0];
+                }
+              })
+            
+              const errorResult = {
+                "isError": isError,
+                "errorName": errorName
+              }
+              
+              return errorResult;
+            }
+            
+            //Function for getting a random value from an array
+            const getRandomFromArray = (array) => array[Math.floor(Math.random() * array.length)];
+            
+            // Function for getting a random number between 2 integers
+            // The maximum is exclusive and the minimum is inclusive
+            const getRandomInt = ([min, max]) => Math.floor(Math.random() * (max - min) + min);
+
+
+
+
+            const now = new Date();
+            const nowMinusTwentyFourH = now - (MS_IN_DAY);
+            const nowMinusTwoH = now - (MS_IN_HOUR * 2);
+
+            let flows = [];
+
+            // Run through and create 500 events over the last 24 hours
+            // If you alter this, make sure to alter the "follow-uper"
+            if(historyCheck == false) {
+              
+                for(let i=0; i<500; i++) {
+            
+                // Set the high level attributes which will apply across all events
+                // Start time is set here for the first event, then all others are relative to this
+                var LOCATION = getRandomWithProbability(LOCATIONS_WITH_PERCENTAGE);
+                var UID = crypto.randomUUID();
+                var SEGMENT = getRandomWithProbability(SEGMENTS);
+                var HOST = getRandomWithProbability(HOST_ENTITY);
+                var START_TIME = new Date(nowMinusTwentyFourH + (getRandomInt([1, now.getTime() - nowMinusTwentyFourH])));
+                START_TIME.setHours(getRandomWithProbability(TIMES_OF_DAY));
+            
+                // If the start time has a chance of being slightly later this hour, then
+                // wind is back 24 hours
+                if(START_TIME.getHours() > now.getHours()) {
+                  START_TIME = new Date(START_TIME - MS_IN_DAY);
+                }
+            
+                // Keep going until the start time falls in the desired range
+                while (START_TIME > now || START_TIME < nowMinusTwentyFourH) {
+                   START_TIME = new Date(nowMinusTwentyFourH + (getRandomInt([1, now - nowMinusTwentyFourH]))); 
+            
+                   if(START_TIME.getHours() > now.getHours()) {
+                     START_TIME = START_TIME - MS_IN_DAY;
+                   }      
+                }
+                
+                var stop = false;
+            
+                // Loop through every step that you've defined, checks will be made for:
+                // 1. Do we need to "drop off" based on the probability you defined
+                // 2. Do we need to "throw an error" based on the errors defined above and stop
+                PROCESS_STEPS.forEach((item, index) => {
+            
+                  // If it's the first step, run this loop
+                  if(index == 0) {
+                    var event = {
+                      "event.provider": EVENT_PROVIDER,
+                      "event.type": item[1],
+                      [CORRELATION_ID]: UID,
+                      [SEGMENT_NAME]: SEGMENT,
+                      "dt.entity.host": HOST,
+                      "timestamp": START_TIME,
+                      "booking.value": getRandomInt([505,2430])
+                    }
+                    stop = false;
+                  }
+            
+                  // If it's the second step, run this loop
+                  // Where an event is in the future it will be put under the same event.provider with
+                  // ".temp" added to the end and be picked up by the "follow-uper" when the right time comes
+                  else if (index > 0 && getRandomInt([0, 100]) > PROCESS_STEPS[index][2] && stop == false) {
+                    
+                    START_TIME = new Date(START_TIME.getTime() + getRandomInt([PROCESS_STEPS[index][3] * MS_IN_HOUR, PROCESS_STEPS[index][4] * MS_IN_HOUR]));
+            
+                    if(START_TIME < now) {
+                      var eventType = item[1];
+                      stop = false;
+                      
+                      if(START_TIME > nowMinusTwoH && checkIfError(index)["isError"] == true) {
+                        eventType = item[1] + "." + checkIfError(index)["errorName"];
+                        stop = true;
+                      }
+                      else {
+                        stop = false;
+                      }
+                      var event = {
+                        "event.provider": EVENT_PROVIDER,
+                        "event.type": eventType,
+                        [CORRELATION_ID]: UID,
+                        [SEGMENT_NAME]: SEGMENT,
+                        "dt.entity.host": HOST,
+                        "timestamp": START_TIME
+                      }
+                      
+                   }   
+                   else {
+                     var futureEvent = {
+                      "event.provider": EVENT_PROVIDER + ".temp",
+                      "event.type": item[1],
+                      [CORRELATION_ID]: UID,
+                      [SEGMENT_NAME]: SEGMENT,
+                      "dt.entity.host": HOST,
+                      "future.timestamp": START_TIME,
+                      "timestamp": now.toISOString()
+                     }
+            
+                     flows.push(futureEvent);
+                     }
+                   
+                  }
+            
+                  else {
+                    stop = true;        
+                  }
+                  
+                  if(event != undefined){
+                    flows.push(event);
+                  }
+                });
+                
+              }
+              //Send all the events into the BizEvents API
+              const result = await fetch('/platform/classic/environment-api/v2/bizevents/ingest', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(flows),
+              });
+            
+              console.log(result);
+            }
+
+
+            return flows.length;
+          }
+      position:
+        x: -1
+        y: 3
+      predecessors:
+        - check_if_data_exists
+      conditions:
+        states:
+          check_if_data_exists: OK
+    process_temporary_events:
+      name: process_temporary_events
+      description: Build a custom task running js Code
+      action: dynatrace.automations:run-javascript
+      active: true
+      input:
+        script: >-
+          // Import of required SDK modules
+
+          import { execution } from '@dynatrace-sdk/automation-utils';
+
+          import { queryExecutionClient } from '@dynatrace-sdk/client-query';
+
+
+          // Numbers for reference
+
+          const MS_IN_S = 1000;
+
+          const MS_IN_MINUTE = 60 * MS_IN_S;
+
+          const MS_IN_HOUR = 60 * MS_IN_MINUTE;
+
+          const MS_IN_DAY = 24 * MS_IN_HOUR;
+
+
+          export default async function ({ execution_id }) {
+
+            // Variable declaration
+            const configGet = await fetch(`/platform/automation/v1/executions/${execution_id}/tasks/config/result`);
+            const configBody = await configGet.json();
+              
+            const EVENT_PROVIDER = configBody['EVENT_PROVIDER'];
+            const PROCESS_STEPS = configBody['PROCESS_STEPS'];
+            const LOCATIONS_WITH_PERCENTAGE = configBody['LOCATIONS_WITH_PERCENTAGE'];
+            const SEGMENT_NAME = configBody['SEGMENT_NAME']; 
+            const SEGMENTS = configBody['SEGMENTS'];
+            const HOST_ENTITY = configBody['HOST_ENTITY'];
+            const CORRELATION_ID = configBody['CORRELATION_ID'];
+            const ERRORS_WITH_PERCENTAGE = configBody['ERRORS_WITH_PERCENTAGE'];
+            const TIMES_OF_DAY = configBody['TIMES_OF_DAY']; 
+            
+            const ex = await execution(execution_id);
+
+            // Get the details about what the time is now, we'll use this to calculate
+            // the sliding window that we need to create
+            const now = new Date();
+            const currentS = now.getSeconds();
+            const currentMs = now.getMilliseconds();
+
+            // Create a start timestamp which is 6 minutes ago, and a finish timestamp which is
+            // 1 minute ago (shifted to take off extra seconds/milliseconds)
+            const start = now - (currentS * MS_IN_S) - currentMs - (360 * MS_IN_S);
+            const finish = now - (currentS * MS_IN_S) - currentMs - (60 * MS_IN_S);
+
+            // Query to check in this sliding window for events which need to be processed
+            // into "permanent" from the ".temp" provider
+            var query = 'fetch bizevents, from:-30d | filter event.provider == "' + EVENT_PROVIDER + '.temp" | filter toTimestamp(future.timestamp) > toTimestamp(' + start * 1000000 + ') AND toTimestamp(future.timestamp) < toTimestamp(' + finish * 1000000 + ')';
+
+            console.log(query);
+            
+            // Execute the query and get the results back
+            const queryTempRecords = await queryExecutionClient.queryExecute({ body: { query, requestTimeoutMilliseconds: 60 * 1000, fetchTimeoutSeconds: 60  } });
+            
+            // If result is empty, exit task with return 
+            if(queryTempRecords.result.records === undefined) {
+              console.log('queryTempRecords is empty, nothing to do.');
+              return;
+            }
+            const records = queryTempRecords.result.records;
+           
+            var events = [];
+            var timestamp = "";
+            const nowMinusTwentyFourH = now - (MS_IN_DAY);
+
+
+            console.log(records);
+            
+            // Loop through each of the records and create the permanent event ready to be sent
+            records.forEach((item) => {  
+
+              var futureTimestamp = new Date(item["future.timestamp"]);
+
+              // If the future timestamp attribute is less than 24 hours ago and less than now, then
+              // continue because the API will take it
+              if(futureTimestamp > nowMinusTwentyFourH && futureTimestamp < now) {
+                console.log("Creating event");
+                
+                // Replace the timestamp with the "future timestamp" we gave it and 
+                // remove unwanted fields
+                timestamp = item["future.timestamp"];
+                item["timestamp"] = timestamp;
+                item["event.provider"] = item["event.provider"].substring(0, item["event.provider"].length - 5);
+                delete item["future.timestamp"];
+                delete item["lookup.timestamp"];
+                delete item["event.id"];
+                delete item["event.kind"];
+
+                events.push(item);
+              }
+
+              
+            })
+
+            console.log(events);
+            
+            //Send all the new permanent events into the BizEvents API
+            const result = await fetch('/platform/classic/environment-api/v2/bizevents/ingest', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(events),
+            });
+
+            console.log(result);
+            
+            return;
+          }
+      position:
+        x: 1
+        y: 2
+      predecessors:
+        - config
+      conditions:
+        states:
+          config: OK
+  description: ""
+  trigger:
+    schedule:
+      rule: null
+      trigger:
+        type: interval
+        intervalMinutes: 5
+      timezone: Europe/London
+      isActive: true
+      isFaulty: false
+      nextExecution: 2024-09-10T19:35:00.000Z
+      filterParameters:
+        earliestStart: 2024-04-25
+        earliestStartTime: 00:00
+      inputs: {}
+  schemaVersion: 3
