@@ -1,0 +1,256 @@
+{
+    "version": "6",
+    "defaultTimeframe": {
+        "from": "now()-2h",
+        "to": "now()"
+    },
+    "sections": [
+        {
+            "id": "052cbe4f-7f94-4ef6-8977-e321b97dbf38",
+            "type": "markdown",
+            "markdown": "##### Workflow Parameters: Set Parameter Task\n---\nThe first task of a workflow should be a parameter task that defines the parameters/variables used by the remainder of tasks in the workflow.  Environment and deployment unique settings, like URLs, entities, etc. should be set as parameters in this task so that no other changes need to be made within the workflow when it is copied/cloned/moved for other uses.\n\nThe parameters are specified in a JSON object variable and then returned during task execution to be used by remaining tasks.  Include a description/purpose for the parameter and provide an example value."
+        },
+        {
+            "id": "fb6b6c95-4bd1-431e-91bb-6dabad13b80f",
+            "type": "function",
+            "showTitle": false,
+            "foldings": [],
+            "state": {
+                "input": {
+                    "value": "export default async function () {\n  \n  let PARAMETERS = {\n    // PARAMETER - description of the paramater\n    PARAMETER: \"VALUE\", // i.e. PARAMETER: \"VALUE\" - example value of the parameter\n  }\n  \n  return PARAMETERS;\n}",
+                    "timeframe": {
+                        "from": "now()-2h",
+                        "to": "now()"
+                    }
+                },
+                "state": "idle",
+                "visualizationSettings": {}
+            }
+        },
+        {
+            "id": "01df776a-a47e-49bf-9321-66fa5229631c",
+            "type": "markdown",
+            "markdown": "##### Workflow Parameters: Using Parameters from Parameter Task\n---\nTasks executed after the parameter task can access the parameters and values from the task result.\n\nWithin the JS code task, the `execution` class must be used from the `dynatrace-sdk/automation-utils` package.  Access the parameter from the task result and assign the value to a new variable.\n\nWithin other task types (non JS code), the parameters can be accessed via Jinja expressions.\n\n`{{ result(\"js_set_parameters\")['PARAMETER NAME'] }}`"
+        },
+        {
+            "id": "2b606ec9-22c9-41b8-b1b3-ff319054a629",
+            "type": "function",
+            "showTitle": false,
+            "foldings": [],
+            "state": {
+                "input": {
+                    "value": "import { execution } from '@dynatrace-sdk/automation-utils';\n\nconst PARAMETERS_TASK = 'js_set_parameters';\n\nexport default async function ({ execution_id }) {\n  \n  // get parameters from previous tasks\n  // execution\n  const ex = await execution(execution_id);\n  // parameters\n  const parameters = await ex.result(PARAMETERS_TASK);\n\n  // declare new variables to easily access the parameters within this task\n  const PARAMETER = parameters['PARAMETER'];\n  \n}",
+                    "timeframe": {
+                        "from": "now()-2h",
+                        "to": "now()"
+                    }
+                },
+                "state": "idle",
+                "visualizationSettings": {}
+            }
+        },
+        {
+            "id": "be919471-3276-4cb6-9590-683abd0d60c9",
+            "type": "markdown",
+            "markdown": "##### App Environment Utilities\n---\nThere are app environment utilities available so that static coding of these values within the workflow are not necessary.\n\nhttps://developer.dynatrace.com/develop/sdks/app-environment/"
+        },
+        {
+            "id": "30ecf838-5e60-4671-81d1-b2cf4ed4b2bc",
+            "type": "function",
+            "showTitle": false,
+            "foldings": [],
+            "state": {
+                "input": {
+                    "value": "import { getCurrentUserDetails } from '@dynatrace-sdk/app-environment';\nimport { getEnvironmentId } from '@dynatrace-sdk/app-environment';\nimport { getEnvironmentUrl } from '@dynatrace-sdk/app-environment';\n\n// import all 3\nimport { getCurrentUserDetails,getEnvironmentId,getEnvironmentUrl } from '@dynatrace-sdk/app-environment';\n\nexport default async function () {\n\n  // get current workflow execution user details\n  const user_details = getCurrentUserDetails(); // returns id, name, email in JSON format\n  const user_email = user_details['email']; // get the user email address\n  const user_id = user_details['id']; // get the user id (UUID)\n  const user_name = user_details['name']; // get the user name\n\n  // get current workflow execution environment id (abc123)\n  const environment_id = getEnvironmentId();\n\n  // get current workflow execution environment URL (abc123.apps.dynatrace.com)\n  const environment_url = getEnvironmentUrl();\n  \n}",
+                    "timeframe": {
+                        "from": "now()-2h",
+                        "to": "now()"
+                    }
+                },
+                "state": "idle",
+                "visualizationSettings": {}
+            }
+        },
+        {
+            "id": "9fbfb9cd-8b16-4dd4-bf62-5e6b53d0490f",
+            "type": "markdown",
+            "markdown": "##### Working with Loop Actions\n---\nWorkflow actions can be configured to run as loops with an array of input data as loop items.\n\nIn the action options, an array (typically a result from a previous task) is provided as input. A loop item variable name is also provided for accessing the array element during each loop execution.\n\nWithin the JS code task, the `actionExecution` class must be used from the `dynatrace-sdk/automation-utils` package.\n\nAccess the loop item from `actionExecution().loopItem['loop item variable name']`.\n\nWithin other task types (non JS code), the parameters can be accessed via Jinja expressions.\n\n`{{ _.loop item variable name }}`"
+        },
+        {
+            "id": "5855a3f4-2337-4e0e-8230-e7f5d85cad15",
+            "type": "function",
+            "showTitle": false,
+            "foldings": [],
+            "state": {
+                "input": {
+                    "value": "import { execution, actionExecution } from '@dynatrace-sdk/automation-utils';\n\nexport default async function ({ execution_id, action_execution_id }) {\n\n  // execution\n  const ex = await execution(execution_id);\n  \n  // get the loop item for the action execution\n  const actionEx = await actionExecution(action_execution_id);\n  const loop_item = actionEx.loopItem['item']; // Loop item variable name from task options\n\n}",
+                    "timeframe": {
+                        "from": "now()-2h",
+                        "to": "now()"
+                    }
+                },
+                "state": "idle",
+                "visualizationSettings": {}
+            }
+        },
+        {
+            "id": "85692f6f-376a-4abf-a8c4-6bdbd56255a3",
+            "type": "markdown",
+            "markdown": "##### Timed Wait within Workflow and Action Execution\n---\nThere may be a need to perform a timed wait within the execution of a workflow or within a JS code action.  TypeScript provides the capabilities to perform a sleep for a specified amount of time.  The action and the workflow execution will be paused during this time.\n\nAdditionally, workflow actions can be configured to 'Wait before' for a specified amount of time.  The entire workflow action will wait that amoutn of time before beginning execution."
+        },
+        {
+            "id": "b1ceb2f5-29b7-4295-b20d-ec6435fd8377",
+            "type": "function",
+            "showTitle": false,
+            "foldings": [],
+            "state": {
+                "input": {
+                    "value": "export default async function () {\n\n  const sleep = async (waitTime: number) =>\n  new Promise(resolve =>\n    setTimeout(resolve, waitTime));\n  \n  const waitTime = async () => {\n  // 30,000ms = 30 seconds to sleep\n  await sleep(30000);\n  console.log(\"Finished Waiting\");\n  }\n\n  console.log(\"Waiting 30 Seconds\");\n  waitTime();\n  \n}",
+                    "timeframe": {
+                        "from": "now()-2h",
+                        "to": "now()"
+                    }
+                },
+                "state": "idle",
+                "visualizationSettings": {}
+            }
+        },
+        {
+            "id": "05b200ac-6545-4d5e-9ce6-5f80500b4f99",
+            "type": "markdown",
+            "markdown": "##### Getting External Data via HTTP(S) with fetch()\n---\nWorkflows can be used to retrieve external data from systems accessible via HTTP(S) and return JSON payloads.\n\nThe `fetch()` API can be used to execute HTTP(S) calls and retrieve JSON responses.\n\nhttps://developer.mozilla.org/en-US/docs/Web/API/Fetch_API/Using_Fetch\n\nIn order to access external systems, you must configure the domain in the allow list for outbound connections.\n\nhttps://developer.dynatrace.com/develop/app-functions/allow-outbound-connections/\n\nFor HTTPS calls, the URL/domain/host must have a valid signed SSL certificate or the call will fail.  There is no way to bypass the SSL certificate check due to data privacy and security standards."
+        },
+        {
+            "id": "20bb7c2e-f326-40b0-9cf9-4ad06300a779",
+            "type": "function",
+            "showTitle": false,
+            "foldings": [],
+            "state": {
+                "input": {
+                    "value": "export default async function () {\n  \n  // set the fetch() api parameters [method, headers, body]\n  // https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API/Using_Fetch\n  const options = {\n    method: \"GET\",\n    headers: {\n      'accept': \"application/json\",\n    }\n  };\n\n  // set the url for the fetch call\n  const url = \"http://hostname:port/uri\"\n  // make the fetch call, passing the url and options, capture the response\n  const response = await fetch(url,options);\n  // parse the json response as a new variable\n  const response_json = await response.json();\n  // return the json response\n  return response_json;\n  \n}",
+                    "timeframe": {
+                        "from": "now()-2h",
+                        "to": "now()"
+                    }
+                },
+                "state": "idle",
+                "visualizationSettings": {}
+            }
+        },
+        {
+            "id": "fa10e288-81e8-47fd-aad9-9ce12194798e",
+            "type": "markdown",
+            "markdown": "##### Sending Data to External Systems via HTTP(S) with fetch()\n---\nWorkflows can be used to send data (preferably JSON payload) to external systems accessible via HTTP(S).\n\nThe `fetch()` API can be used to execute HTTP(S) calls and send (JSON) payloads.\n\nhttps://developer.mozilla.org/en-US/docs/Web/API/Fetch_API/Using_Fetch\n\nIn order to access external systems, you must configure the domain in the allow list for outbound connections.\n\nhttps://developer.dynatrace.com/develop/app-functions/allow-outbound-connections/\n\nFor HTTPS calls, the URL/domain/host must have a valid signed SSL certificate or the call will fail.  There is no way to bypass the SSL certificate check due to data privacy and security standards."
+        },
+        {
+            "id": "7a3c1dcc-d144-4764-a7e3-b2eafd18c0fe",
+            "type": "function",
+            "showTitle": false,
+            "foldings": [],
+            "state": {
+                "input": {
+                    "value": "export default async function () {\n  \n  // set the fetch() api parameters [method, headers, body]\n  // https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API/Using_Fetch\n  const json_body = {\n    key: \"value\"\n  }\n\n  const options = {\n    method: \"POST\",\n    headers: {\n      'content-type': \"application/json\",\n    },\n    body: JSON.stringify(json_body) // convert json object to json string\n  };\n  \n  // set the url for the fetch call\n  const url = \"http://hostname:port/uri\"\n  // make the fetch call, passing the url and options, capture the response\n  const response = await fetch(url,options);\n  // capture the response code\n  const response_status = response.status\n\n  return response_status;\n  \n}",
+                    "timeframe": {
+                        "from": "now()-2h",
+                        "to": "now()"
+                    }
+                },
+                "state": "idle",
+                "visualizationSettings": {}
+            }
+        },
+        {
+            "id": "0365c48c-0043-4c83-ba1f-bc2135fda399",
+            "type": "markdown",
+            "markdown": "#### JavaScript Runtime: Dynatrace SDK for TypeScript\n---\nThe SDK for TypeScript provides a TypeScript API for Dynatrace platform services and Dynatrace AppEngine functionality.\n\nhttps://developer.dynatrace.com/develop/sdks/\n\nIt consists of the following:\n* TypeScript packages focused on specific use cases to use Dynatrace platform functionality.\n* Modular clients for each Dynatrace platform service to reduce overhead on a specific use."
+        },
+        {
+            "id": "122f40fe-574a-40bb-8efd-a15947a474b0",
+            "type": "markdown",
+            "markdown": "##### Executing DQL Queries within JS Code Actions\n---\nWhile there is a DQL workflow action type, it may be beneficial to execute a DQL query from within a JS code action.  This can be accomplished using the `queryExecutionClient` from the `dynatrace-sdk/client-query` package.\n\nhttps://developer.dynatrace.com/develop/sdks/client-query/#queryexecute"
+        },
+        {
+            "id": "e3520c8c-282e-4c09-8c30-7bb2d9c8a9c1",
+            "type": "function",
+            "showTitle": false,
+            "foldings": [],
+            "state": {
+                "input": {
+                    "value": "import { queryExecutionClient } from \"@dynatrace-sdk/client-query\";\n\nexport default async function () {\n  \n  // build the DQL query\n  // https://developer.dynatrace.com/develop/sdks/client-query/#queryexecute\n  const timeout = 60;\n  const query = 'timeseries metric = avg(' + metric + '), by: {dimension}, from: now()-5m\\\n                  | filter dimension == \"' + dimension + '\"\\\n                  | summarize avg = avg(arrayAvg(metric))';\n  \n  const query_response = await queryExecutionClient.queryExecute({ body: { query, requestTimeoutMilliseconds: timeout * 1000, fetchTimeoutSeconds: timeout  } });\n\n  // check if the query result is empty (unexpectedly)\n  if(query_response.result.records.length == 0) {\n    console.log(\"Query returned an empty result unexpectedly!\");\n    return query_response.result;\n  }\n\n  return query_response.result;\n  \n}",
+                    "timeframe": {
+                        "from": "now()-2h",
+                        "to": "now()"
+                    }
+                },
+                "state": "idle",
+                "visualizationSettings": {}
+            }
+        },
+        {
+            "id": "caf8ca5c-648b-49c4-b48b-7d8c246b2f3f",
+            "type": "markdown",
+            "markdown": "##### Credential Vault Access via SDK\n---\nDuring workflow execution, integration with external systems may require credentials.  Those credentials should be accessed securely from the credential vault and not static coded into the workflow itself.\n\nCredentials can be accessed using `credentialVaultClient` from the `dynatrace-sdk/client-classic-environment-v2` package.\n\nWhen a credential is obtained, it contains the `token` value or the `username` and `password` values respectively.\n\nhttps://developer.dynatrace.com/develop/sdks/client-classic-environment-v2/#getcredentialsdetails"
+        },
+        {
+            "id": "aabfe971-f525-4528-9abc-5396b2d43438",
+            "type": "function",
+            "showTitle": false,
+            "foldings": [],
+            "state": {
+                "input": {
+                    "value": "import { credentialVaultClient } from '@dynatrace-sdk/client-classic-environment-v2';\n\nexport default async function () {\n\n  // CREDENTIAL - the credential vault entity ID\n  const CREDENTIAL = \"CREDENTIALS_VAULT-ABC1235EEF8F36FD\";\n\n  // get the credentials from the credential vault using the SDK\n  // https://developer.dynatrace.com/develop/sdks/client-classic-environment-v2/#getcredentialsdetails\n  const data = (await credentialVaultClient.getCredentialsDetails({id: CREDENTIAL}));\n  const token = data['token'];\n  const username = data['username'];\n  const password = data['password'];\n  \n}",
+                    "timeframe": {
+                        "from": "now()-2h",
+                        "to": "now()"
+                    }
+                },
+                "state": "idle",
+                "visualizationSettings": {}
+            }
+        },
+        {
+            "id": "d91b5386-3650-4b2e-8e9a-7f7c178de322",
+            "type": "markdown",
+            "markdown": "##### Metric Ingest via SDK\n---\nData ingest is a common use case for workflows.  Logs, traces, events, and metrics can all be ingested during workflow execution.\n\nMetric ingestion is possible with the `metricsClient` from the `dynatrace-sdk/client-classic-environment-v2` package.\n\nhttps://developer.dynatrace.com/develop/sdks/client-classic-environment-v2/#ingest-1\n\nThe metric ingest utilizes the metric line protocol format:\n\nhttps://docs.dynatrace.com/docs/extend-dynatrace/extend-metrics/reference/metric-ingestion-protocol"
+        },
+        {
+            "id": "0472bae5-32a4-44a7-bc64-35ef9c1e81ad",
+            "type": "function",
+            "showTitle": false,
+            "foldings": [],
+            "state": {
+                "input": {
+                    "value": "import { metricsClient } from \"@dynatrace-sdk/client-classic-environment-v2\";\n\nexport default async function () {\n\n  // build the line_protocol string to ingest the metric data point\n  const line_protocol = 'metric' + ',dimension-name=dimension-value' + ' value'; // mymetric,team=teamA,businessapp=hr 1000\n  \n  // ingest the metric data point using the SDK\n  // https://developer.dynatrace.com/develop/sdks/client-classic-environment-v2/#ingest-1\n  const data = await metricsClient.ingest({\n    body: line_protocol,\n  });\n  \n}",
+                    "timeframe": {
+                        "from": "now()-2h",
+                        "to": "now()"
+                    }
+                },
+                "state": "idle",
+                "visualizationSettings": {}
+            }
+        },
+        {
+            "id": "cb77a6b6-6d13-4c32-8821-aa679d98da9e",
+            "type": "markdown",
+            "markdown": "##### Event Ingestion (and Alerting) via SDK\n---\nGenerating alerts (events, problem events) is a common use case for workflows.\n\nEvents can be ingested/created using the `eventsClient` from the `dynatrace-sdk/client-classic-environment-v2` package.\n\nhttps://developer.dynatrace.com/develop/sdks/client-classic-environment-v2/#createevent\n\nThere multiple event types that can be created via the `EventIngestEventType` class:\n\nhttps://developer.dynatrace.com/develop/sdks/client-classic-environment-v2/#eventingesteventtype"
+        },
+        {
+            "id": "dfe61c51-876c-4607-a686-9b96e9ecd627",
+            "type": "function",
+            "showTitle": false,
+            "foldings": [],
+            "state": {
+                "input": {
+                    "value": "import { eventsClient, EventIngestEventType } from \"@dynatrace-sdk/client-classic-environment-v2\";\n\nexport default async function () {\n\n  // https://developer.dynatrace.com/develop/sdks/client-classic-environment-v2/#createevent\n  const event_response = await eventsClient.createEvent({\n    // https://developer.dynatrace.com/develop/sdks/client-classic-environment-v2/#eventingest\n    body : {\n      eventType: EventIngestEventType.CustomAlert, // https://developer.dynatrace.com/develop/sdks/client-classic-environment-v2/#eventingesteventtype\n      title: 'Event Title',\n      timeout: 5,\n      properties: {\n        'property-1': value,\n        'property-2': 'value',\n      }\n    }\n  });\n\n}",
+                    "timeframe": {
+                        "from": "now()-2h",
+                        "to": "now()"
+                    }
+                },
+                "state": "idle",
+                "visualizationSettings": {}
+            }
+        }
+    ]
+}
