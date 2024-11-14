@@ -3,7 +3,7 @@ metadata:
   dependencies:
     apps:
       - id: dynatrace.automations
-        version: ^1.840.5
+        version: ^1.1057.0
   inputs: []
 workflow:
   title: Workflow Essentials - Config Generator
@@ -441,6 +441,7 @@ workflow:
 
 
 
+
             
           }
       position:
@@ -555,6 +556,7 @@ workflow:
 
 
 
+
             
           }
       position:
@@ -562,11 +564,14 @@ workflow:
         y: 4
       predecessors:
         - js_check_slack_connections
+        - js_put_allow_list
       conditions:
         states:
+          js_put_allow_list: SUCCESS
           js_check_slack_connections: SUCCESS
         custom: "{{ result(\"js_check_slack_connections\")['connection_exists'] == false
           }}"
+      waitBefore: 30
     js_get_slack_connections:
       name: js_get_slack_connections
       description: Get the current Slack connections settings objects via SDK
